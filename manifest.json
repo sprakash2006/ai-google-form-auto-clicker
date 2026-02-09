@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Mock Form Auto Clicker",
+  "version": "1.0",
+  "description": "Automates mock Google Forms for learning DOM automation.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.cohere.com/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "128": "assets/icon.png"
+  }
+}
