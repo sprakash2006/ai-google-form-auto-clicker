@@ -8,9 +8,7 @@
     "scripting",
     "storage"
   ],
-  "host_permissions": [
-    "https://api.cohere.com/*"
-  ],
+  "host_permissions": [],
   "action": {
     "default_popup": "popup.html"
   },

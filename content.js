@@ -1,12 +1,12 @@
-console.log("Mock Form Auto Clicker loaded (Cohere Version)");
+console.log("Mock Form Auto Clicker loaded (Manual Mode)");
 
-chrome.storage.local.get(["cohereApiKey"], (result) => {
-  const apiKey = result.cohereApiKey;
-  if (apiKey) {
-    runAutomation(apiKey);
+chrome.storage.local.get(["manualAnswers"], (result) => {
+  const manualAnswers = result.manualAnswers;
+  if (manualAnswers) {
+    runManualAutomation(manualAnswers);
   } else {
-    alert("Please save your Cohere API Key in the extension popup first!");
-    console.warn("No API Key found in storage.");
+    alert("Please enter answers in the extension popup first!");
+    console.warn("No answers found in storage.");
   }
 });
 
@@ -38,8 +38,8 @@ function gatherQuestions() {
   return gathered;
 }
 
-// ---- Run automation on all questions (single API call) ----
-async function runAutomation(apiKey) {
+// ---- Run manual automation based on input string ----
+async function runManualAutomation(manualAnswersStr) {
   const questions = gatherQuestions();
 
   if (questions.length === 0) {
@@ -47,7 +47,13 @@ async function runAutomation(apiKey) {
     return;
   }
 
-  console.log(`Processing ${questions.length} question(s) in a single API call...`);
+  // Parse the input string: "1,2,1,3" -> [1, 2, 1, 3]
+  const answerIndices = manualAnswersStr.split(",")
+    .map(s => s.trim())
+    .filter(s => s !== "")
+    .map(s => parseInt(s));
+
+  console.log(`Processing ${questions.length} question(s) with manual answers:`, answerIndices);
 
   // ---- Auto-fill text inputs (name / roll) ----
   const textInputs = document.querySelectorAll('input[type="text"]');
@@ -68,87 +74,32 @@ async function runAutomation(apiKey) {
     font-family: Arial, sans-serif; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   `;
   document.body.appendChild(progress);
-  progress.textContent = `Sending ${questions.length} question(s) to Cohere...`;
-
-  // Build a single prompt with all questions
-  const answers = await getAllAnswersFromCohere(apiKey, questions);
-
-  if (!answers) {
-    progress.textContent = "Error: Failed to get answers from Cohere.";
-    setTimeout(() => progress.remove(), 4000);
-    return;
-  }
+  progress.textContent = `Applying manual answers...`;
 
   // Click the correct options
   let answered = 0;
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
-    const answerIndex = answers[i];
+    
+    // User enters 1-based index, we need 0-based
+    const userChoice = answerIndices[i];
+    const internalIndex = userChoice - 1; 
 
     progress.textContent = `Clicking answers... (${i + 1}/${questions.length})`;
 
-    if (answerIndex !== -1 && q.options[answerIndex]) {
-      q.options[answerIndex].click();
-      console.log(`Q${q.index + 1}: Clicked option index ${answerIndex}`);
+    if (!isNaN(internalIndex) && internalIndex >= 0 && q.options[internalIndex]) {
+      q.options[internalIndex].click();
+      console.log(`Q${q.index + 1}: Clicked option ${userChoice} (internal index ${internalIndex})`);
       answered++;
     } else {
-      console.warn(`Q${q.index + 1}: Could not determine answer (got index: ${answerIndex})`);
+      console.warn(`Q${q.index + 1}: No valid answer provided or option not found (User choice: ${userChoice})`);
     }
 
     // Small delay between clicks to look natural
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 200));
   }
 
-  progress.textContent = `Done! ${answered}/${questions.length} question(s) answered.`;
+  progress.textContent = `Done! ${answered} question(s) updated.`;
   setTimeout(() => progress.remove(), 4000);
   console.log("Automation complete");
-}
-
-// ---- Send all questions in one API call and parse all answers ----
-async function getAllAnswersFromCohere(apiKey, questions) {
-  const prompt = questions.map((q, i) => {
-    const optList = q.optionTexts.map((opt, j) => `  ${j}: ${opt}`).join('\n');
-    return `Q${i + 1}: ${q.questionText}\nOptions:\n${optList}`;
-  }).join('\n\n');
-
-  const fullPrompt = `
-Answer the following ${questions.length} multiple choice questions.
-
-${prompt}
-
-Task: For each question, identify the correct option.
-Output format: Return ONLY the answer indices, one per line, in order. Each line should contain ONLY a single number (0, 1, 2, etc.). No explanations, no labels, no extra text.
-Example output for 3 questions:
-2
-0
-1
-`;
-
-  console.log("Sending batch request to background script...");
-
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({
-      action: "fetchCohereBatch",
-      apiKey: apiKey,
-      prompt: fullPrompt,
-      questionCount: questions.length
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Runtime error:", chrome.runtime.lastError);
-        resolve(null);
-        return;
-      }
-
-      if (response && response.error) {
-        console.error("API Error from background:", response.error);
-        resolve(null);
-      } else if (response && Array.isArray(response.answers)) {
-        console.log("Background returned answers:", response.answers);
-        resolve(response.answers);
-      } else {
-        console.warn("Invalid response from background:", response);
-        resolve(null);
-      }
-    });
-  });
 }

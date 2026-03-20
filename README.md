@@ -1,6 +1,6 @@
 # Mock Form Auto Clicker
 
-A Chrome extension that uses the **Cohere AI API** to automatically answer multiple-choice questions on Google Forms. It reads every MCQ on the page, sends them to Cohere in a single batched request, and clicks the correct options — all with human-like delays.
+A Chrome extension that allows you to automatically answer multiple-choice questions on Google Forms by providing a list of answer indices. It reads every MCQ on the page and clicks the specified options with human-like delays.
 
 > **Disclaimer**: This tool is intended **only** for mock, practice, or self-created forms. It does **not** click the submit button. Do not use it on real exams or assessments.
 
@@ -8,12 +8,12 @@ A Chrome extension that uses the **Cohere AI API** to automatically answer multi
 
 ## Features
 
-- **AI-powered answers** — leverages Cohere's `command-a-03-2025` model to determine the correct option for each question.
-- **Batch processing** — all questions on the page are sent in one API call for speed and efficiency.
+- **Manual Answer Input** — directly specify the option numbers (e.g., `1, 2, 1, 3`) for the questions on the page.
+- **Rewriting Answers** — if you rerun the extension with a different input, it will overwrite the previously selected options.
 - **Auto-fill text fields** — pre-fills the first two text inputs (e.g. name and roll number).
 - **Human-like delays** — adds a short pause between each click to mimic natural behavior.
 - **Floating progress indicator** — shows real-time status on the page while the extension is working.
-- **Secure key storage** — your Cohere API key is saved locally via `chrome.storage` and never leaves your browser except to call the API.
+- **Local Persistence** — your answers are saved locally via `chrome.storage` for convenience.
 
 ## Tech Stack
 
@@ -21,7 +21,6 @@ A Chrome extension that uses the **Cohere AI API** to automatically answer multi
 |---|---|
 | Platform | Chrome Extension (Manifest V3) |
 | Language | JavaScript |
-| AI Backend | [Cohere](https://cohere.com) Chat API (v2) |
 | Permissions | `activeTab`, `scripting`, `storage` |
 
 ## Project Structure
@@ -29,10 +28,10 @@ A Chrome extension that uses the **Cohere AI API** to automatically answer multi
 ```
 form-auto-clicker/
 ├── manifest.json   # Extension manifest (MV3)
-├── popup.html      # Popup UI with API key input & run button
-├── popup.js        # Popup logic — saves key, injects content script
+├── popup.html      # Popup UI for answer index input & run button
+├── popup.js        # Popup logic — saves choices, injects content script
 ├── content.js      # Content script — gathers questions, clicks answers
-├── background.js   # Service worker — proxies Cohere API calls
+├── background.js   # Service worker — minimal background process
 ├── assets/
 │   └── icon.png    # Extension icon (128×128)
 └── README.md
@@ -43,7 +42,6 @@ form-auto-clicker/
 ### Prerequisites
 
 - Google Chrome (or any Chromium-based browser)
-- A free [Cohere API key](https://dashboard.cohere.com/api-keys)
 
 ### Installation
 
@@ -58,17 +56,18 @@ form-auto-clicker/
 ### Usage
 
 1. Click the extension icon in the toolbar.
-2. Enter your Cohere API key and click **Save Key** (only needed once).
+2. Enter your desired answers as a comma-separated list (e.g., `1, 2, 1, 3`).
+   - `1` corresponds to the first option, `2` to the second, etc.
 3. Navigate to a Google Form with multiple-choice questions.
 4. Click **Run on Mock Form**.
-5. Watch the floating indicator as questions are answered automatically.
+5. Watch the floating indicator as questions are updated automatically.
 
 ## How It Works
 
-1. **`popup.js`** saves the API key to `chrome.storage.local` and injects `content.js` into the active tab.
-2. **`content.js`** scrapes all `[role="radiogroup"]` blocks on the page, extracts each question's text and option labels, then sends them to the background service worker.
-3. **`background.js`** makes a single POST request to Cohere's chat endpoint with a carefully structured prompt that asks for one answer index per line.
-4. The parsed indices are returned to `content.js`, which clicks the matching radio button for each question with a 300 ms delay between clicks.
+1. **`popup.js`** saves the answers to `chrome.storage.local` and injects `content.js` into the active tab.
+2. **`content.js`** scrapes all `[role="radiogroup"]` blocks on the page, extracts each question's text and option labels.
+3. It parses your input string (e.g., `1, 2, 1`) and clicks the corresponding radio button for each question with a 200 ms delay between clicks.
+4. Since Google Forms handle radio button selection by state, subsequent clicks on different options will "rewrite" the choice as expected.
 
 ## License
 
